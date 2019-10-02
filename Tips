@@ -1,0 +1,40 @@
+library(keras)
+data <- read.csv('~/Desktop/data/CTG.csv', header=T)
+data$NSP <- data$NSP -1
+
+# Turn `data` into a matrix
+data <- as.matrix(data)
+dimnames(data) <- NULL  
+
+# Normalize the  data
+data[,1:21] <- normalize(data[,1:21])
+
+# Partition
+set.seed(1234)
+ind <- sample(2, nrow(data), replace = T, prob=c(.7, .3))
+training <- data[ind==1, 1:21]
+test <- data[ind==2, 1:21]
+trainingtarget <- data[ind==1, 22]
+testtarget <- data[ind==2, 22]
+
+# One hot encoding 
+trainLabels <- to_categorical(trainingtarget)
+testLabels <- to_categorical(testtarget)
+
+# model_one
+model <- keras_model_sequential()
+model %>% 
+  layer_dense(units = 8, activation = 'relu', input_shape = c(21)) %>%
+  layer_dense(units = 3, activation = 'softmax')  
+
+# Compile the model 
+model %>% compile(loss = 'categorical_crossentropy', 
+                  optimizer = 'adam',
+                  metrics = 'accuracy')
+
+# Fit model
+history <- model %>% fit(training, 
+                         trainLabels, 
+                         epochs = 200,  
+                         batch_size = 32,
+                         validation_split = 0.2)
