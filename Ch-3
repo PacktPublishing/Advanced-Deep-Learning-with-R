@@ -1,0 +1,151 @@
+library(keras)
+library(mlbench)  
+library(psych)  
+library(dplyr)
+library(magrittr)
+library(neuralnet)
+
+# Data
+data(BostonHousing)
+data <- BostonHousing
+data %<>% mutate_if(is.factor,as.numeric)  
+data %<>% lapply(function(x) as.numeric(as.character(x)))
+data <- data.frame(data)
+
+# Viz NN
+n <- neuralnet(medv~crim+zn+indus+chas+nox+rm+age+dis+rad+tax+ptratio+b+lstat,
+               data = data,
+               hidden = c(10,5),
+               linear.output = F,
+               lifesign = 'full',
+               rep=1)
+
+plot(n, col.hidden = "darkgreen", 
+     col.hidden.synapse = 'darkgreen',
+     show.weights = F, 
+     information = F, 
+     fill = "lightblue")
+
+# Matrix
+data <- as.matrix(data)
+dimnames(data) <- NULL 
+
+# Partition
+set.seed(1234)
+ind <- sample(2, nrow(data), replace = T, prob=c(.7, .3))
+training <- data[ind==1, c(1:13)]
+test <- data[ind==2, 1:13]
+trainingtarget <- data[ind==1, 14]
+testtarget <- data[ind==2, 14]
+
+# Normalize 
+m    <- colMeans(training)
+sd   <- apply(training, 2, sd)
+training <- scale(training, center = m, scale = sd)
+test <- scale(test, center = m, scale = sd)
+
+# Creat model 
+model <- keras_model_sequential()
+model %>%  layer_dense(units = 10, activation = 'relu', input_shape = c(13)) %>%    
+  layer_dense(units = 5, activation = 'relu') %>%
+    layer_dense(units = 1)  
+
+# Compile 
+model %>% compile(loss = 'mse',  
+  optimizer = 'rmsprop',  
+  metrics = 'mae')
+
+# Fit the model
+mymodel <- model %>%   
+  fit(training, 
+  trainingtarget, 
+  epochs = 100,
+  batch_size = 32, #samples per gradient update default 32
+  validation_split = 0.2)
+
+# Evaluate 
+model %>%  evaluate(test, testtarget)  
+
+# Prediction 
+pred <- model %>%  predict(test)
+mean((testtarget-pred)^2)
+
+cbind(pred[1:10], testtarget[1:10])
+par(mfrow=c(1,1))
+plot(testtarget, pred, 
+     xlab = 'Actual', 
+     ylab = 'Prediction')
+abline(a=0,b=1)
+
+# Fine-tune 
+model <- keras_model_sequential()
+model %>%  layer_dense(units = 100, activation = 'relu', input_shape = c(13)) %>%  
+  layer_dropout(rate = 0.4) %>%
+  layer_dense(units = 50, activation = 'relu') %>%
+  layer_dropout(rate = 0.3) %>%
+  layer_dense(units = 20, activation = 'relu') %>%
+  layer_dropout(rate = 0.2) %>%
+  layer_dense(units = 1) 
+
+# Compile 
+model %>% compile(loss = 'mse',  
+                  optimizer = 'rmsprop',  
+                  metrics = 'mae')
+
+# Fit the model 
+mymodel <- model %>%   
+  fit(training, 
+      trainingtarget, 
+      epochs = 100,
+      batch_size = 32,  
+      validation_split = 0.2)
+
+model %>%  evaluate(test, testtarget)  
+
+p2 <- model %>%  predict(test)
+plot(testtarget, p2,
+     xlab = 'Actual', 
+     ylab = 'Prediction')
+abline(a=0,b=1)
+
+# Fine-tune 
+trainingtarget <- log(trainingtarget)
+testtarget <- log(testtarget)
+
+model <- keras_model_sequential()
+model %>%   layer_dense(units = 100, activation = 'relu', input_shape = c(13)) %>%   
+  layer_dropout(rate = 0.4) %>% # dropout avoids overfitting
+  layer_dense(units = 50, activation = 'relu') %>%
+  layer_dropout(rate = 0.2) %>%
+  layer_dense(units = 25, activation = 'relu') %>%
+  layer_dropout(rate = 0.1) %>%
+  layer_dense(units = 1) 
+
+# Compile 
+model %>% compile(loss = 'mse',  
+                  optimizer = optimizer_rmsprop(lr = 0.005), 
+                  metrics = 'mae')
+
+# Fit the model 
+mymodel <- model %>%   
+  fit(training, 
+      trainingtarget, 
+      epochs = 100,
+      batch_size = 32, #samples per gradient update default 32
+      validation_split = 0.2)
+model %>%  evaluate(test, testtarget)  
+p3 <- model %>%  predict(test)
+
+p4 <- exp(p3)
+t <- exp(testtarget)
+par(mfrow=c(1,2))
+plot(testtarget, p3, 
+     xlab = 'Actual', 
+     ylab = 'Prediction',
+     main = "In log scale")
+abline(a=0,b=1)
+plot(t, p4, 
+     xlab = 'Actual', 
+     ylab = 'Prediction',
+     main = "In original scale")
+abline(a=0,b=1)
