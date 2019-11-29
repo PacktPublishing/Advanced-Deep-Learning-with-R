@@ -1,0 +1,67 @@
+library(keras)
+library(EBImage)
+
+# Read images
+setwd("~/Desktop/image15")
+temp = list.files(pattern="*.jpg")
+mypic <- list()
+for (i in 1:length(temp)) {mypic[[i]] <- readImage(temp[i])}
+
+# Plot all pictures
+par(mfrow = c(3,6))
+for (i in 1:length(temp)) plot(mypic[[i]])
+par(mfrow = c(1,1))
+
+# Resize
+for (i in 1:length(temp)) {mypic[[i]] <- resize(mypic[[i]], 28, 28)}
+
+# Reshape
+for (i in 1:length(temp)) {mypic[[i]] <- array_reshape(mypic[[i]], c(28, 28,3))}
+
+# Row Bind
+a <- c(1:4, 7:10, 13:16)
+b <- c(5:6, 11:12, 17:18)
+trainx <- NULL
+for (i in a) {trainx <- rbind(trainx, mypic[[i]]) }
+testx <- NULL
+for (i in b) {testx <- rbind(testx, mypic[[i]])}
+trainy <- c(0,0,0,0,1,1,1,1,2,2,2,2)
+testy <- c(0,0,1,1,2,2)
+
+# One hot encoding 
+trainLabels <- to_categorical(trainy)
+testLabels <- to_categorical(testy)
+
+# Model
+model <- keras_model_sequential() 
+model %>%  layer_dense(units = 512, activation = 'relu', input_shape = c(2352)) %>% 
+  layer_dropout(rate = 0.1) %>%
+  layer_dense(units = 256, activation = 'relu') %>%
+  layer_dropout(rate = 0.1) %>%
+  layer_dense(units = 3, activation = 'softmax')
+
+# Compile 
+model %>% compile(loss = 'categorical_crossentropy',
+  optimizer = 'adam',
+  metrics = 'accuracy')
+
+# Fit  model
+history <- model %>% fit(trainx, 
+                         trainLabels, 
+                         epochs = 50, 
+                         batch_size = 32, 
+                         validation_split = 0.2)
+
+# Evaluation & Prediction - train data 
+model %>% evaluate(trainx, trainLabels)
+pred <- model %>%   predict_classes(trainx)
+table(Predicted=pred, Actual=trainy)
+prob <- model %>%   predict_proba(trainx) 
+cbind(prob, Predicted_class = pred, Actual = trainy)
+
+# Evaluation & Prediction -  test data 
+model %>% evaluate(testx, testLabels)
+pred <- model %>%   predict_classes(testx)
+table(Predicted=pred, Actual=testy)
+prob <- model %>%   predict_proba(testx) 
+cbind(prob, Predicted_class = pred, Actual = testy)
