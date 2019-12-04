@@ -1,0 +1,149 @@
+# IMDB data
+library(keras)
+imdb <- dataset_imdb(num_words = 500) 
+c(c(train_x, train_y), c(test_x, test_y)) %<-% imdb
+train_x <- pad_sequences(train_x, maxlen = 200) 
+test_x <- pad_sequences(test_x, maxlen = 200)
+
+# Model architecture
+model <- keras_model_sequential() %>%
+         layer_embedding(input_dim = 500, output_dim = 32) %>%
+         layer_lstm(units = 32) %>%
+         layer_dense(units = 1, activation = "sigmoid")
+model
+
+# Compile
+model %>% compile(optimizer = "rmsprop",  
+         loss = "binary_crossentropy",
+         metrics = c("acc"))
+         
+# Fit model
+model_one <- model %>% fit(train_x, train_y,
+         epochs = 10,
+         batch_size = 128,
+         validation_split = 0.2)
+plot(model_one)
+
+# Evaluate
+model %>% evaluate(train_x, train_y)
+
+# Confusion Matrix
+pred <- model %>% predict_classes(train_x)
+table(Predicted=pred, Actual=imdb$train$y)
+
+# Evaluate
+model %>% evaluate(test_x, test_y)
+
+# Confusion Matrix
+pred1 <- model %>$ predict_classes(text_x)
+table(Predicted=pred1, Actual=imdb$test$y)
+
+# Model architecture
+model <- keras_model_sequential() %>%
+         layer_embedding(input_dim = 500, output_dim = 32) %>%
+         layer_lstm(units = 32) %>%
+         layer_dense(units = 1, activation = "sigmoid")
+
+# Compile
+model %>% compile(optimizer = "adam",  
+         loss = "binary_crossentropy",
+         metrics = c("acc"))
+
+# Fit model
+model_two <- model %>% fit(train_x, train_y,
+         epochs = 10,
+         batch_size = 128,
+         validation_split = 0.2)
+plot(model_two)
+
+# Loss and accuracy
+model %>% evaluate(train_x, train_y)
+
+# Confusion Matrix
+pred <- model %>%   predict_classes(train_x)
+table(Predicted=pred, Actual=imdb$train$y)
+
+# Loss and accuracy
+model %>% evaluate(test_x, test_y)
+
+# Confusion Matrix
+pred1 <- model %>%   predict_classes(test_x)
+table(Predicted=pred1, Actual=imdb$test$y)
+
+# Number of positive and negative reviews in the train data
+table(train_y)
+
+# Number of positive and negative review in the test data
+table(test_y)
+
+# Model architecture
+model <- keras_model_sequential() %>%
+         layer_embedding(input_dim = 500, output_dim = 32) %>%
+         layer_lstm(units = 32,
+                    return_sequences = TRUE) %>%
+         layer_lstm(units = 32) %>%
+         layer_dense(units = 1, activation = "sigmoid")
+
+# Compiling model
+model %>% compile(optimizer = "adam",   
+         loss = "binary_crossentropy",
+         metrics = c("acc"))
+
+# Fitting model
+model_three <- model %>% fit(train_x, train_y,
+         epochs = 10,
+         batch_size = 128,
+         validation_split = 0.2)
+
+# Loss and accuracy plot
+plot(model_three)
+
+# Loss and accuracy
+model %>% evaluate(train_x, train_y)
+
+# Confusion Matrix
+pred <- model %>%   predict_classes(train_x)
+table(Predicted=pred, Actual=imdb$train$y) 
+
+# Loss and accuracy
+model %>% evaluate(test_x, test_y)
+
+# Confusion Matrix
+pred1 <- model %>%   predict_classes(test_x)
+table(Predicted=pred1, Actual=imdb$test$y)
+
+# Model architecture
+model <- keras_model_sequential() %>%
+          layer_embedding(input_dim = 500, output_dim = 32) %>%
+          bidirectional(layer_lstm(units = 32)) %>%
+          layer_dense(units = 1, activation = "sigmoid")
+# Model summary
+summary(model)
+
+# Compiling model
+model %>% compile(optimizer = "adam",   
+          loss = "binary_crossentropy",
+          metrics = c("acc"))
+
+# Fitting model
+ model_four <- model %>% fit(train_x, train_y,
+          epochs = 10,
+          batch_size = 128,
+          validation_split = 0.2)
+
+# Loss and accuracy plot
+plot(model_four)
+
+# Loss and accuracy
+model %>% evaluate(train_x, train_y)
+
+# Confusion Matrix
+pred <- model %>%   predict_classes(train_x)
+table(Predicted=pred, Actual=imdb$train$y)
+
+# Loss and accuracy
+model %>% evaluate(test_x, test_y)
+
+#Confusion Matrix
+pred1 <- model %>%   predict_classes(test_x)
+table(Predicted=pred1, Actual=imdb$test$y)
