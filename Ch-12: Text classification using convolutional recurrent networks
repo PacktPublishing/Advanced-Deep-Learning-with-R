@@ -1,0 +1,214 @@
+# Libraries used
+library(keras)
+library(deepviz)
+library(readtext)
+
+# Reading Reuters train data
+setwd("~/Desktop/C50/C50train")
+temp = list.files(pattern="*.*")
+k <- 1; tr <- list(); trainx <- list(); trainy <- list()
+for (i in 1:length(temp)) {for (j in 1:50) 
+         { trainy[k] <- temp[i]
+         k <- k+1}
+author <- temp[i]
+files <- paste0("~/Desktop/C50/C50train/", author, "/*")
+tr <- readtext(files)
+trainx <- rbind(trainx, tr)}
+trainx <- trainx$text
+
+# Text file 901
+trainx[901]
+
+# Author
+trainy[901]
+
+# Reuters test data
+setwd("~/Desktop/C50/C50test")
+temp = list.files(pattern="*.*")
+k <- 1; tr <- list(); testx <- list(); testy <- list()
+for (i in 1:length(temp)) {for (j in 1:50) 
+         { testy[k] <- temp[i]
+         k <- k+1}
+         author <- temp[i]
+         files <- paste0("~/Desktop/C50/C50test/", author, "/*")
+         tr <- readtext(files)
+         testx <- rbind(testx, tr)}
+testx <- testx$text
+
+# Tokenization
+token <- text_tokenizer(num_words = 500) %>%    
+         fit_text_tokenizer(trainx)
+
+# Text to sequence of integers
+trainx <- texts_to_sequences(token, trainx)
+testx <- texts_to_sequences(token, testx)
+
+# Examples
+trainx[[7]]
+trainx[[901]]
+
+# Integers per article for train data
+z <- NULL
+for (i in 1:2500) {z[i] <- print(length(trainx[[i]]))}
+summary(z)
+
+# Intergers per article for text data
+z <- NULL
+for (i in 1:2500) {z[i] <- print(length(testx[[i]]))}
+summary(z)
+
+# Train and test labels to integers
+trainy <- as.factor(unlist(trainy))
+trainy <- as.integer(trainy) -1 
+testy <- as.factor(unlist(testy))
+testy <- as.integer(testy) -1
+
+# Saving original labels
+trainy_org <- trainy
+testy_org <- testy
+
+# Padding and truncation
+trainx <- pad_sequences(trainx, maxlen = 300) 
+testx <- pad_sequences(testx, maxlen = 300)
+dim(trainx) 
+
+# Example of truncation
+trainx[7,]
+
+# Example of padding
+trainx[901,]
+
+# Data partition
+trainx_org <- trainx  
+testx_org <- testx
+set.seed(1234)
+ind <- sample(2, nrow(trainx), replace = T, prob=c(.8, .2))
+trainx <- trainx_org[ind==1, ]
+validx <- trainx_org[ind==2, ]
+trainy <- trainy_org[ind==1]
+validy <- trainy_org[ind==2]
+
+# OHE
+trainy <- to_categorical(trainy, 50)
+validy <- to_categorical(validy, 50)
+testy <- to_categorical(testy, 50)
+
+# Model architecture
+model <- keras_model_sequential() %>%
+         layer_embedding(input_dim = 500, 
+                         output_dim = 32, 
+                         input_length = 300) %>%
+         layer_conv_1d(filters = 32, 
+                  kernel_size = 5, 
+                  padding = "valid",
+                  activation = "relu",
+                  strides = 1) %>%
+         layer_max_pooling_1d(pool_size = 4) %>%
+         layer_lstm(units = 32) %>%
+         layer_dense(units = 50, activation = "softmax") 
+
+# Model summary
+summary(model)
+
+# Compile model
+model %>% compile(optimizer = "adam",  
+         loss = "categorical_crossentropy",
+         metrics = c("acc"))
+         
+# Fitting the model
+model_one <- model %>% fit(trainx, trainy,
+         epochs = 30,
+         batch_size = 32,
+         validation_data = list(validx, validy))
+
+# Loss and accuracy plot
+plot(model_one)
+
+# Loss and accuracy
+model %>% evaluate(trainx, trainy)
+
+# Prediction and confusion matrix
+pred <- model %>%   predict_classes(trainx_org)
+tab <- table(Predicted=pred, Actual=trainy_org)
+(accuracy <- 100*diag(tab)/colSums(tab))
+
+# Loss and accuracy
+model %>% evaluate(testx, testy)
+
+# Prediction and confusion matrix
+pred1 <- model %>%   predict_classes(testx)
+tab1 <- table(Predicted=pred1, Actual=testy_org)
+(accuracy <- 100*diag(tab1)/colSums(tab1))
+
+
+# Model architecture
+model <- keras_model_sequential() %>%
+         layer_embedding(input_dim = 1500, 
+                         output_dim = 32, 
+                         input_length = 400) %>%
+         layer_conv_1d(filters = 32, 
+                  kernel_size = 5, 
+                  padding = "valid",
+                  activation = "relu",
+                  strides = 1) %>%
+         layer_max_pooling_1d(pool_size = 4) %>%
+         layer_dropout(0.25) %>%
+         layer_lstm(units = 32) %>%
+         layer_dense(units = 50, activation = "softmax") 
+
+# Compiling the model
+model %>% compile(optimizer = "adam",  
+         loss = "categorical_crossentropy",
+         metrics = c("acc"))
+
+# Fitting the model
+model_two <- model %>% fit(trainx, trainy,
+         epochs = 30,
+         batch_size = 16,
+         validation_data = list(validx, validy))
+
+# Plot of loss and accuracy
+plot(model_two)
+
+# Loss and accuracy for train data
+model %>% evaluate(trainx, trainy)
+
+# Loss and accuracy for test data
+model %>% evaluate(testx, testy)
+
+# Model architecture
+model <- keras_model_sequential() %>%
+          layer_embedding(input_dim = 1500,
+                          output_dim = 32,
+                          input_length = 400) %>%
+          layer_conv_1d(filters = 64,
+                   kernel_size = 4,
+                   padding = "valid",
+                   activation = "relu",
+                   strides = 1) %>%
+          layer_max_pooling_1d(pool_size = 4) %>%
+          layer_dropout(0.25) %>%
+          layer_lstm(units = 32) %>%
+          layer_dense(units = 50, activation = "softmax")
+
+# Compiling the model
+ model %>% compile(optimizer = "adam",  
+          loss = "categorical_crossentropy",
+          metrics = c("acc"))
+
+ # Fitting the model
+ model_three <- model %>% fit(trainx, trainy,
+          epochs = 30,
+          batch_size = 8,
+          validation_data = list(validx, validy))
+
+# Loss and accuracy plot
+plot(model_three)
+
+# Loss and accuracy for train data
+model %>% evaluate(trainx, trainy)
+
+# Loss and accuracy for test data
+model %>% evaluate(testx, testy)
+
+
