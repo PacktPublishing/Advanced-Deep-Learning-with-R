@@ -1,0 +1,89 @@
+# Deep network for text classification
+library(keras)
+library(syuzhet) 
+
+# Sep 12, 2017 tweets after iphone X release
+t1 <- "I'm not a huge $AAPL fan but $160 stock closes down $0.60 for the day on huge volume isn't really bearish"
+t2 <- "$AAPL $BAC not sure what more dissapointing: the new iphones or the presentation for the new iphones?"
+t3 <- "IMO, $AAPL animated emojis will be the death of $SNAP."
+t4 <- "$AAPL get on board. It's going to 175. I think wall st will have issues as aapl pushes 1 trillion dollar valuation but 175 is in the cards"
+t5 <- "In the AR vs. VR battle, $AAPL just put its chips behind AR in a big way."
+tweets <- c(t1, t2, t3, t4, t5)
+
+# Tokenize
+token <- text_tokenizer(num_words = 10) %>%    
+         fit_text_tokenizer(tweets)
+
+token$word_counts %>% head()
+token$index_word %>% head()
+token$index_word[1:3]
+
+token$word_index %>% head()
+token$word_index[1:3]
+length(token$word_index)
+
+seq <- texts_to_sequences(token, tweets)
+
+z <- NULL
+for (i in 1:5) {z[i] <- print(length(seq[[i]]))}
+summary(z)
+
+# Padding
+pad_seq <- pad_sequences(seq, maxlen = 5, padding = 'post', truncating = 'post')
+
+# Sentiment
+s <- get_nrc_sentiment(tweets) 
+get_nrc_sentiment('animated') 
+get_nrc_sentiment('death') 
+
+get_sentiment(tweets, method="syuzhet")
+get_sentiment(tweets, method="bing")
+get_sentiment(tweets, method="afinn")
+
+get_sentiment('bearish', method="syuzhet")
+get_sentiment('bearish', method="bing")
+get_sentiment('bearish', method="afinn")
+
+# IMDB data
+imdb <- dataset_imdb(num_words = 500)  
+c(c(train_x, train_y), c(test_x, test_y)) %<-% imdb
+z <- NULL
+for (i in 1:25000) {z[i] <- print(length(train_x[[i]]))}
+hist(z,
+     xlab = 'Sequence Length',
+     col = 'green',
+     main = '')
+
+# Padding
+train_x <- pad_sequences(train_x, maxlen = 200, padding = 'post') 
+test_x <- pad_sequences(test_x, maxlen = 200, padding = 'post')
+
+# Model
+model <- keras_model_sequential()
+model %>% layer_embedding(input_dim = 500, 
+                          output_dim = 16, 
+                          input_length = 200) %>%
+         layer_flatten() %>% 
+         layer_dense(units = 16, activation = 'relu') %>%
+         layer_dense(units = 1, activation = "sigmoid")
+
+# Compile
+model %>% compile(optimizer = "adamax",  
+                  loss = "binary_crossentropy",
+                  metrics = c("acc"))
+
+# Fit model
+model_1 <- model %>% fit(train_x, train_y,
+                         epochs = 10,
+                         batch_size = 512,
+                         validation_split = 0.2)
+plot(model_1)
+
+# Prediction
+model %>% evaluate(train_x, train_y)
+pred <- model %>%   predict_classes(train_x)
+table(Predicted=pred, Actual=imdb$train$y)
+
+model %>% evaluate(test_x, test_y)
+pred1 <- model %>%   predict_classes(test_x)
+table(Predicted=pred1, Actual=imdb$test$y)
