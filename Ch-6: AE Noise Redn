@@ -1,0 +1,76 @@
+# Load pckages
+library(keras)
+library(EBImage)
+
+# Data
+mnist <- dataset_mnist()
+trainx <- mnist$train$x
+testx <- mnist$test$x
+
+# Plot 64 images
+par(mfrow = c(8,8), mar = rep(0, 4))
+for (i in 1:64) plot(as.raster(trainx[i,,], max = 255))
+par(mfrow = c(1,1))
+
+# reshape & rescale
+trainx <- array_reshape(trainx, c(nrow(trainx),28,28,1))
+testx <- array_reshape(testx, c(nrow(testx),28,28,1))
+trainx <- trainx / 255
+testx <- testx / 255
+
+# Create noise
+n <- runif(60000*28*28,0,1)
+n <- array_reshape(n, c(60000,28,28,1))
+par(mfrow = c(8,8), mar = rep(0, 4))
+for (i in 1:64) plot(as.raster(n[i,,,]))
+par(mfrow = c(1,1))
+
+# Add noise
+trainn <- (trainx + n)/2
+par(mfrow = c(8,8), mar = rep(0, 4))
+for (i in 1:64) plot(as.raster(trainn[i,,,]))
+par(mfrow = c(1,1))
+
+n1 <- runif(10000*28*28,0,1)
+n1 <- array_reshape(n1, c(10000,28,28,1))
+testn <- (testx +n1)/2
+par(mfrow = c(8,8), mar = rep(0, 4))
+for (i in 1:64) plot(as.raster(testn[i,,,]))
+par(mfrow = c(1,1))
+
+# Model
+input_layer <- layer_input(shape = c(28,28,1)) 
+encoder <-  input_layer %>% 
+         layer_conv_2d(filters = 32, kernel_size = c(3,3), activation = 'relu', padding = 'same') %>%   
+         layer_max_pooling_2d(pool_size = c(2,2),padding = 'same') %>% 
+         layer_conv_2d(filters = 32, kernel_size = c(3,3), activation = 'relu', padding = 'same') %>%  
+         layer_max_pooling_2d(pool_size = c(2,2), padding = 'same')  
+decoder <- encoder %>% 
+         layer_conv_2d(filters = 32, kernel_size = c(3,3), activation = 'relu',padding = 'same') %>%   
+         layer_upsampling_2d(c(2,2)) %>% 
+         layer_conv_2d(filters = 32, kernel_size = c(3,3), activation = 'relu',padding = 'same') %>%  
+         layer_upsampling_2d(c(2,2)) %>% 
+         layer_conv_2d(filters = 1, kernel_size = c(3,3), activation = 'sigmoid',padding = 'same')
+
+# Compile model
+ae_model <- keras_model(inputs = input_layer, outputs = decoder)
+ae_model %>% compile( loss='binary_crossentropy', optimizer='adam')
+
+# Fit  model
+history <- ae_model %>% fit(trainn, 
+                         trainx, 
+                         epochs = 100, 
+                         shuffle = TRUE,
+                         batch_size = 128,  
+                        validation_data = list(testn,testx))
+plot(history)
+
+# Evaluate
+ae_model %>% evaluate(trainn, trainx)
+ae_model %>% evaluate(testn, testx)
+
+# Reconstruct
+rc <- ae_model %>%   keras::predict_on_batch(x = testn)
+par(mfrow = c(8,8), mar = rep(0, 4))
+for (i in 1:64) plot(as.raster(rc[i,,,]))
+par(mfrow = c(1,1))
