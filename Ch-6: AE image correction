@@ -1,0 +1,106 @@
+# Load pckages
+library(keras)
+library(EBImage)
+
+# Read images with line
+setwd("~/Desktop/peoplex")
+temp = list.files(pattern="*.jpeg")
+mypic <- list()
+for (i in 1:length(temp)) {mypic[[i]] <- readImage(temp[i])}
+
+# Resize/Reshape
+for (i in 1:length(temp)) {mypic[[i]] <- resize(mypic[[i]], 128, 128)}
+for (i in 1:length(temp)) {dim(mypic[[i]]) <- c(128, 128,3)}
+par(mfrow = c(5,5), mar = rep(0, 4))
+for (i in 1:length(temp)) plot(as.raster(mypic[[i]]))
+par(mfrow = c(1,1))
+
+# Combine
+trainx <- combine(mypic)
+x <- tile(trainx, 5)
+trainx <- aperm(trainx, c(4,1,2,3))
+
+par(mfrow = c(5,5), mar = rep(0, 4))
+for (i in 1:25) plot(as.raster(trainx[i,,,]))
+
+# Images without line
+setwd("~/Desktop/people")
+temp = list.files(pattern="*.jpeg")
+mypic <- list()
+for (i in 1:length(temp)) {mypic[[i]] <- readImage(temp[i])}
+for (i in 1:length(temp)) {mypic[[i]] <- resize(mypic[[i]], 128, 128)}
+for (i in 1:length(temp)) {dim(mypic[[i]]) <- c(128, 128,3)}
+
+# Combine
+trainy <- combine(mypic)
+x <- tile(trainy, 5)
+display(x)
+trainy <- aperm(trainy, c(4,1,2,3))
+
+par(mfrow = c(5,5), mar = rep(0, 4))
+for (i in 1:25) plot(as.raster(trainy[i,,,]))
+par(mfrow = c(1,1))
+
+# Model
+input_layer <-  layer_input(shape = c(128,128,3)) 
+encoder <-  input_layer %>% 
+         layer_conv_2d(filters = 512, kernel_size = c(3,3), activation = 'relu', padding = 'same') %>%   
+         layer_max_pooling_2d(pool_size = c(2,2),padding = 'same') %>% 
+         layer_conv_2d(filters = 512, kernel_size = c(3,3), activation = 'relu', padding = 'same') %>%   
+         layer_max_pooling_2d(pool_size = c(2,2),padding = 'same') %>% 
+         layer_conv_2d(filters = 256, kernel_size = c(3,3), activation = 'relu', padding = 'same') %>%  
+         layer_max_pooling_2d(pool_size = c(2,2), padding = 'same')  
+summary(encoder)
+decoder <- encoder %>% 
+         layer_conv_2d(filters = 256, kernel_size = c(3,3), activation = 'relu',padding = 'same') %>%   
+         layer_upsampling_2d(c(2,2)) %>% 
+         layer_conv_2d(filters = 512, kernel_size = c(3,3), activation = 'relu',padding = 'same') %>%   
+         layer_upsampling_2d(c(2,2)) %>% 
+         layer_conv_2d(filters = 512, kernel_size = c(3,3), activation = 'relu',padding = 'same') %>%  
+         layer_upsampling_2d(c(2,2)) %>% 
+         layer_conv_2d(filters = 3, kernel_size = c(3,3), activation = 'sigmoid',padding = 'same')
+summary(decoder)
+
+# Compile model - to configure the learning process
+ae_model <- keras_model(inputs = input_layer, outputs = decoder)
+ae_model %>% compile( loss='mse',
+         optimizer='adam')
+
+# Fit  model
+model_three <- ae_model %>% fit(trainx, 
+                         trainy, 
+                         epochs = 100, 
+                         batch_size = 128, 
+                         validation_split = 0.2)
+plot(model_three)
+
+save_model_hdf5(ae_model, 
+                "~/Desktop/ch6_face_mse", 
+                overwrite = TRUE,
+                include_optimizer = TRUE)
+ae_model <- load_model_hdf5("~/Desktop/ch6_face_mse", custom_objects = NULL,compile = TRUE)
+
+# Reconstruct
+rc <- ae_model %>%  keras::predict_on_batch(x = trainx)
+a <- rc
+a <- (a-min(a))/(max(a)-min(a))
+
+par(mfrow = c(5,5), mar = rep(0, 4))
+for (i in 1:25) plot(as.raster(a[i,,,]))
+par(mfrow = c(1,1))
+
+# New data
+setwd("~/Desktop/newx")
+temp = list.files(pattern="*.jpeg")
+mypic <- list()
+for (i in 1:length(temp)) {mypic[[i]] <- readImage(temp[i])}
+for (i in 1:length(temp)) {mypic[[i]] <- resize(mypic[[i]], 128, 128)}
+for (i in 1:length(temp)) {dim(mypic[[i]]) <- c(128, 128,3)}
+newx <- combine(mypic)
+newx <- aperm(newx, c(4,1,2,3))
+par(mfrow = c(5,5), mar = rep(0, 4))
+for (i in 1:25) plot(as.raster(newx[i,,,]))
+
+rc <- ae_model %>%   keras::predict_on_batch(x = newx)
+par(mfrow = c(5,5), mar = rep(0, 4))
+for (i in 1:25) plot(as.raster(rc[i,,,]))
