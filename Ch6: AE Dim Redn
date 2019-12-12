@@ -1,0 +1,69 @@
+# Load pckages
+library(keras)
+library(EBImage)
+
+# Data
+mnist <- dataset_fashion_mnist()
+trainx <- mnist$train$x
+trainy <- mnist$train$y
+testx <- mnist$test$x
+testy <- mnist$test$y
+
+# Plot 9 images
+par(mfrow = c(8,8), mar = rep(0, 4))
+for (i in 1:64) plot(as.raster(trainx[i,,], max = 255))
+par(mfrow = c(1,1))
+
+# reshape
+trainx <- array_reshape(trainx, c(nrow(trainx), 28, 28, 1))
+testx <- array_reshape(testx, c(nrow(testx), 28, 28, 1))
+trainx <- trainx / 255
+testx <- testx / 255
+
+# Model
+input_layer <-  layer_input(shape = c(28,28,1)) 
+encoder <-  input_layer %>% 
+         layer_conv_2d(filters = 8, 
+                       kernel_size = c(3,3), 
+                       activation = 'relu', 
+                       padding = 'same') %>%   
+         layer_max_pooling_2d(pool_size = c(2,2),
+                              padding = 'same') %>% 
+         layer_conv_2d(filters = 4, 
+                       kernel_size = c(3,3), 
+                       activation = 'relu', 
+                       padding = 'same') %>%  
+         layer_max_pooling_2d(pool_size = c(2,2), 
+                              padding = 'same')  
+decoder <- encoder %>% 
+         layer_conv_2d(filters = 4, 
+                       kernel_size = c(3,3), 
+                       activation = 'relu',
+                       padding = 'same') %>%   
+         layer_upsampling_2d(c(2,2)) %>% 
+         layer_conv_2d(filters = 8, 
+                       kernel_size = c(3,3), 
+                       activation = 'relu',
+                       padding = 'same') %>%  
+         layer_upsampling_2d(c(2,2)) %>% 
+         layer_conv_2d(filters = 1, 
+                       kernel_size = c(3,3), 
+                       activation = 'sigmoid',
+                       padding = 'same')
+# Compile model 
+ae_model <- keras_model(inputs = input_layer, outputs = decoder)
+ae_model %>% compile( loss='mean_squared_error', optimizer='adam')
+
+# Fit  model
+model_one <- ae_model %>% fit(trainx, 
+                         trainx, 
+                         epochs = 20, 
+                         shuffle=TRUE,
+                         batch_size = 32, 
+                         validation_data = list(testx,testx))
+plot(model_one)
+
+rc <-   ae_model %>%    keras::predict_on_batch(x = testx)
+par(mfrow = c(2,5), mar = rep(0, 4))
+for (i in 1:5) plot(as.raster(rc[i,,,]))
+for (i in 1:5) plot(as.raster(testx[i,,,]))
